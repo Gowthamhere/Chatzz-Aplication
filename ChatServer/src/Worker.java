@@ -2,6 +2,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.HashSet;
 import java.util.List;
 
 public class Worker extends Thread {
@@ -10,6 +11,7 @@ public class Worker extends Thread {
     private final Server server;
     private String login = null;
     private OutputStream outputStream;
+    private HashSet<String> topicSet = new HashSet<>();
 
     public Worker(Server server, Socket clientSocket) {
         this.server = server;
@@ -31,10 +33,9 @@ public class Worker extends Thread {
         InputStream inputStream = clientSocket.getInputStream();
         this.outputStream = clientSocket.getOutputStream();
 
-        outputStream.write("HellO!!! Please Enter Something: ".getBytes());
-        BufferedReader scan = new BufferedReader(new InputStreamReader(inputStream));
+        BufferedReader scanner = new BufferedReader(new InputStreamReader(inputStream));
         String line;
-        while((line = scan.readLine()) != null){
+        while ((line = scanner.readLine()) != null) {
             String[] tokens = StringUtils.split(line);
             if (tokens != null && tokens.length > 0) {
                 String cmd = tokens[0];
@@ -43,19 +44,71 @@ public class Worker extends Thread {
                     break;
                 } else if (cmd.equalsIgnoreCase("login")) {
                     loginHandler(outputStream, tokens);
-                } else{
-                    String msg = "You Typed: " + line + "\n";
+                } else if (cmd.equalsIgnoreCase("msg")) {
+                    String[] tokensMsg = StringUtils.split(line, null, 3);
+                    messageHandler(tokensMsg);
+                } else if (cmd.equalsIgnoreCase("join")) {
+                    groupHandler(tokens);
+                } else if (cmd.equalsIgnoreCase("leave")) {
+                    leaveHandler(tokens);
+                } else {
+                    String msg = "unknown " + cmd + "\n";
                     outputStream.write(msg.getBytes());
                 }
             }
         }
 
+        clientSocket.close();
+    }
+
+    private void leaveHandler(String[] tokens) {
+        if (tokens.length > 1) {
+            String topic = tokens[1];
+            topicSet.remove(topic);
+        }
+    }
+
+    public boolean isMemberOfTopic(String topic) {
+        return topicSet.contains(topic);
+    }
+
+    private void groupHandler(String[] tokens) {
+        if (tokens.length > 1) {
+            String topic = tokens[1];
+            topicSet.add(topic);
+
+        }
+    }
+
+    private void messageHandler(String[] tokens) throws IOException {
+        String sendTo = tokens[1];
+        String body = tokens[2];
+
+        boolean isTopic = sendTo.charAt(0) == '#';
+
+        List<Worker> workerList = server.getWorkerList();
+        for (Worker worker : workerList) {
+            if (isTopic) {
+                if (worker.isMemberOfTopic(sendTo)) {
+                    String outMsg = "msg " + sendTo + ":" + login + " " + body + "\n";
+                    worker.send(outMsg);
+                }
+            } else {
+                if (sendTo.equalsIgnoreCase(worker.getLogin())) {
+                    String outMsg = "msg " + login + " " + body + "\n";
+                    worker.send(outMsg);
+                }
+            }
+        }
     }
 
     private void logoffHandler() throws IOException, InterruptedException {
-        outputStream.write("See you Again".getBytes());
-        String offlineMsg = "offline " + login + "\n";
+        server.removeWorker(this);
         List<Worker> workerList = server.getWorkerList();
+        String bye = "See you Again\n";
+        outputStream.write(bye.getBytes());
+        String offlineMsg = "offline " + login + "\n";
+
         for (Worker worker : workerList) {
             if (!login.equals(worker.getLogin())) {
                 worker.send(offlineMsg);
@@ -79,19 +132,12 @@ public class Worker extends Thread {
             String password = tokens[2];
 
             if (login.equals("test") && password.equals("test") || (login.equals("test1") && password.equals("test"))) {
-                String msg = "Hello Guest!!!!";
+                String msg = "Login Successful\n";
                 outputStream.write(msg.getBytes());
                 this.login = login;
                 System.out.println("User Logged in succesfully: " + login);
 
-                String onlineMsg = "online " + login + "\n";
                 List<Worker> workerList = server.getWorkerList();
-
-                for (Worker worker : workerList) {
-                    if (!login.equals(worker.getLogin())) {
-                        worker.send(onlineMsg);
-                    }
-                }
 
                 for (Worker worker : workerList) {
                     if (worker.getLogin() != null) {
@@ -102,16 +148,30 @@ public class Worker extends Thread {
                     }
                 }
 
+                String onlineMsg = "online " + login + "\n";
+                for (Worker worker : workerList) {
+                    if (!login.equals(worker.getLogin())) {
+                        worker.send(onlineMsg);
+                    }
+                }
+
+
+
             } else {
-                String msg = "Login Failed";
+                String msg = "Login Failed\n";
                 outputStream.write(msg.getBytes());
+                System.err.println("Login failed for " + login);
             }
         }
     }
 
     private void send(String msg) throws IOException {
         if (login != null) {
-            outputStream.write(msg.getBytes());
+            try {
+                outputStream.write(msg.getBytes());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
 
     }
