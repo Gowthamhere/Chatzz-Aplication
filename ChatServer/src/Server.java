@@ -27,6 +27,7 @@ public class Server extends Thread {
                 System.out.println("Waiting for Connection...");
                 Socket clientSocket = serverSocket.accept();
                 System.out.println("Connected");
+                System.out.println("Client port: " + clientSocket.getPort());
                 Worker worker = new Worker(this, clientSocket);
                 workerList.add(worker);
                 worker.start();

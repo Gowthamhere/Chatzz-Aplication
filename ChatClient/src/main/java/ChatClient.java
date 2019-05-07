@@ -22,41 +22,41 @@ public class ChatClient {
         this.serverPort = serverPort;
     }
 
-    public static void main(String[] args) throws IOException {
-        ChatClient client = new ChatClient("localhost", 8080);
-        client.addUserStatusListener(new UserStatusListener() {
-            @Override
-            public void online(String login) {
-                System.out.println("ONLINE: " + login);
-            }
-
-            @Override
-            public void offline(String login) {
-                System.out.println("OFFLINE: " + login);
-            }
-        });
-
-        client.addMessageListener((fromUser, messageBody) -> System.out.println("You got a Message from " + fromUser + "---> " + messageBody));
-
-
-        if (!client.connect()) {
-            System.err.println("Connect failed");
-        } else {
-            System.out.println("Connect Successful");
-
-
-            if (client.login("test", "test")) {
-                System.out.println("Login Successful");
-
-                client.msg("test1", "Hello Test1");
-            } else {
-                System.err.println("Login Failed");
-            }
-
-            //           client.logoff();
-
-        }
-    }
+//    public static void main(String[] args) throws IOException {
+//        ChatClient client = new ChatClient("localhost", 8080);
+//        client.addUserStatusListener(new UserStatusListener() {
+//            @Override
+//            public void online(String login) {
+//                System.out.println("ONLINE: " + login);
+//            }
+//
+//            @Override
+//            public void offline(String login) {
+//                System.out.println("OFFLINE: " + login);
+//            }
+//        });
+//
+//        client.addMessageListener((fromUser, messageBody) -> System.out.println("You got a Message from " + fromUser + "---> " + messageBody));
+//
+//
+//        if (!client.connect()) {
+//            System.err.println("Connect failed");
+//        } else {
+//            System.out.println("Connect Successful");
+//
+//
+//            if (client.login("test", "test")) {
+//                System.out.println("Login Successful");
+//
+//                client.msg("test1", "Hello Test1");
+//            } else {
+//                System.err.println("Login Failed");
+//            }
+//
+//            //           client.logoff();
+//
+//        }
+//    }
 
     public void msg(String sendTo, String messageBody) throws IOException {
         String cmd = "msg " + sendTo + " " + messageBody + "\n";
@@ -66,7 +66,6 @@ public class ChatClient {
     public void logoff() throws IOException {
         String cmd = "logoff\n";
         serverOut.write(cmd.getBytes());
-        serverOut.flush();
     }
 
     public boolean login(String login, String password) throws IOException {
@@ -80,7 +79,7 @@ public class ChatClient {
 //                socket.close();
             return true;
         } else {
-            socket.close();
+//            socket.close();
             return false;
         }
     }
@@ -127,8 +126,8 @@ public class ChatClient {
     private void messageHandler(String[] tokensMsg) {
         String login = tokensMsg[1];
         String messageBody = tokensMsg[2];
-        for (MessageListener mlistener : messageListeners) {
-            mlistener.onMessage(login, messageBody);
+        for (MessageListener listener : messageListeners) {
+            listener.onMessage(login, messageBody);
         }
 
 
@@ -157,7 +156,7 @@ public class ChatClient {
             this.bufferedIn = new BufferedReader(new InputStreamReader(serverIn));
             return true;
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("Server Down");
         }
 
         return false;
@@ -171,11 +170,11 @@ public class ChatClient {
         userStatusListeners.remove(listener);
     }
 
-    public void addMessageListener(MessageListener mlistener) {
-        messageListeners.add(mlistener);
+    public void addMessageListener(MessageListener listener) {
+        messageListeners.add(listener);
     }
 
-    public void removeMessageListener(MessageListener mlistener) {
-        messageListeners.remove(mlistener);
+    public void removeMessageListener(MessageListener listener) {
+        messageListeners.remove(listener);
     }
 }
